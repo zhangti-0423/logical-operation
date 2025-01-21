@@ -64,7 +64,7 @@ class ConditionB implements Predicate<Context> {
     public boolean test(Context context) {
         try {
             boolean res = false;
-            long time = 3;
+            long time = 2;
             System.out.println("公共入参：" + context.getFact("demo"));
             System.out.println("线程B开始" + Thread.currentThread());
             TimeUnit.SECONDS.sleep(time);
@@ -81,7 +81,7 @@ class ConditionC implements Predicate<Context> {
     @Override
     public boolean test(Context context) {
         try {
-            boolean res = true;
+            boolean res = false;
             long time = 3;
             System.out.println("公共入参：" + context.getFact("demo"));
             System.out.println("线程C开始" + Thread.currentThread());

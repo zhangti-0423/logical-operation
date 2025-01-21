@@ -47,38 +47,30 @@ public class LogicalExpressionParser {
      * @param predicateMap 每个逻辑条件对应的实现
      * @return 逻辑表达式
      */
-    public static Expression parseExpression(List<String> tokens, Map<String, Predicate<Context>> predicateMap) {
+    private static Expression parseExpression(List<String> tokens, Map<String, Predicate<Context>> predicateMap) {
         Stack<Expression> expressionStack = new Stack<>();
         Stack<String> operatorStack = new Stack<>();
 
         for (String token : tokens) {
             switch (token) {
-                case "&&":
-                case "||":
-                case "!":
-                    operatorStack.push(token);
-                    break;
                 case "(":
+                case "!":
                     operatorStack.push(token);
                     break;
                 case ")":
                     while (!operatorStack.isEmpty() && !operatorStack.peek().equals("(")) {
-                        String operator = operatorStack.pop();
-                        if (Objects.equals(operator, "!")) {
-                            Expression expr = expressionStack.pop();
-                            expressionStack.push(new NotExpression(expr));
-                        } else {
-                            List<Expression> subExpressions = new ArrayList<>();
-                            subExpressions.add(expressionStack.pop());
-                            subExpressions.add(expressionStack.pop());
-                            if (Objects.equals(operator, "&&")) {
-                                expressionStack.push(new AndExpression(subExpressions));
-                            } else if (Objects.equals(operator, "||")) {
-                                expressionStack.push(new OrExpression(subExpressions));
-                            }
-                        }
+                        applyOperator(expressionStack, operatorStack.pop());
                     }
-                    operatorStack.pop();
+                    if (!operatorStack.isEmpty() && operatorStack.peek().equals("(")) {
+                        operatorStack.pop();
+                    }
+                    break;
+                case "&&":
+                case "||":
+                    while (!operatorStack.isEmpty() && precedence(operatorStack.peek()) >= precedence(token)) {
+                        applyOperator(expressionStack, operatorStack.pop());
+                    }
+                    operatorStack.push(token);
                     break;
                 default:
                     expressionStack.push(new Literal(predicateMap.get(token)));
@@ -87,22 +79,49 @@ public class LogicalExpressionParser {
         }
 
         while (!operatorStack.isEmpty()) {
-            String operator = operatorStack.pop();
-            if (Objects.equals(operator, "!")) {
-                Expression expr = expressionStack.pop();
-                expressionStack.push(new NotExpression(expr));
-            } else {
-                List<Expression> subExpressions = new ArrayList<>();
-                subExpressions.add(expressionStack.pop());
-                subExpressions.add(expressionStack.pop());
-                if (Objects.equals(operator, "&&")) {
-                    expressionStack.push(new AndExpression(subExpressions));
-                } else if (Objects.equals(operator, "||")) {
-                    expressionStack.push(new OrExpression(subExpressions));
-                }
-            }
+            applyOperator(expressionStack, operatorStack.pop());
         }
 
         return expressionStack.pop();
+    }
+
+    /**
+     * 表达式处理
+     *
+     * @param expressionStack 表达式栈
+     * @param operator        操作符
+     */
+    private static void applyOperator(Stack<Expression> expressionStack, String operator) {
+        switch (operator) {
+            case "!":
+                Expression operand = expressionStack.pop();
+                expressionStack.push(new NotExpression(operand));
+                break;
+            case "&&":
+                Expression rightAnd = expressionStack.pop();
+                Expression leftAnd = expressionStack.pop();
+                expressionStack.push(new AndExpression(Arrays.asList(leftAnd, rightAnd)));
+                break;
+            case "||":
+                Expression rightOr = expressionStack.pop();
+                Expression leftOr = expressionStack.pop();
+                expressionStack.push(new OrExpression(Arrays.asList(leftOr, rightOr)));
+                break;
+        }
+    }
+
+    /**
+     * 设置操作符优先级
+     *
+     * @param operator 操作符
+     * @return 优先级
+     */
+    private static int precedence(String operator) {
+        return switch (operator) {
+            case "!" -> 3;
+            case "&&" -> 2;
+            case "||" -> 1;
+            default -> 0;
+        };
     }
 }
